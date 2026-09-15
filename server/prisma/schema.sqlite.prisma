@@ -1,0 +1,100 @@
+// Prisma Schema for PlaceMentor AI (SQLite development fallback)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String   @id @default(uuid())
+  name            String
+  email           String   @unique
+  passwordHash    String
+  phone           String?
+  program         String
+  department      String
+  graduationYear  Int
+  skills          String   @default("")
+  preferredDomain String   @default("Software Development")
+  experienceLevel String   @default("Fresher")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  chats           Chat[]
+  resumes         Resume[]
+
+  @@map("users")
+}
+
+model Chat {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String    @default("New Chat")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  messages  Message[]
+
+  @@map("chats")
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  chatId    String
+  chat      Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  role      String
+  content   String
+  createdAt DateTime @default(now())
+
+  @@map("messages")
+}
+
+model Resume {
+  id             String           @id @default(uuid())
+  userId         String
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fileName       String
+  storedName     String
+  mimeType       String
+  fileSize       Int
+  filePath       String
+  extractedText  String
+  targetCompany  String?
+  targetRole     String?
+  jobDescription String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  analyses       ResumeAnalysis[]
+
+  @@map("resumes")
+}
+
+model ResumeAnalysis {
+  id                        String   @id @default(uuid())
+  resumeId                  String
+  resume                    Resume   @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  overallScore              Int      @default(0)
+  atsScore                  Int      @default(0)
+  matchPercentage           Int?
+  summary                   String?
+  strengths                 String
+  weaknesses                String
+  skillsAnalysis            String
+  projectAnalysis           String
+  educationAnalysis         String
+  experienceAnalysis        String
+  formattingIssues          String
+  atsIssues                 String
+  actionableSuggestions     String
+  improvedResumeSuggestions String
+  companyRoleAnalysis       String?
+  createdAt                 DateTime @default(now())
+
+  @@map("resume_analyses")
+}

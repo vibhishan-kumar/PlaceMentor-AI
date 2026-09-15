@@ -1,0 +1,104 @@
+// Prisma Schema for PlaceMentor AI (PostgreSQL)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String   @id @default(uuid())
+  name            String
+  email           String   @unique
+  passwordHash    String
+  phone           String?
+  program         String   // e.g. MCA, B.Tech, M.Tech, M.Sc
+  department      String   // e.g. School of Computer and Information Sciences
+  graduationYear  Int      // e.g. 2025, 2026
+  skills          String   @default("") // Comma separated or JSON string
+  preferredDomain String   @default("Software Development") // e.g. Full Stack, AI/ML, Data Science, Cloud/DevOps
+  experienceLevel String   @default("Fresher") // e.g. Fresher, Intermediate, Experienced
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  chats           Chat[]
+  resumes         Resume[]
+
+  @@map("users")
+}
+
+model Chat {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String    @default("New Chat")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  messages  Message[]
+
+  @@index([userId])
+  @@map("chats")
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  chatId    String
+  chat      Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  role      String   // "USER" | "ASSISTANT"
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([chatId])
+  @@map("messages")
+}
+
+model Resume {
+  id             String           @id @default(uuid())
+  userId         String
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fileName       String
+  storedName     String
+  mimeType       String
+  fileSize       Int
+  filePath       String
+  extractedText  String           @db.Text
+  targetCompany  String?
+  targetRole     String?
+  jobDescription String?          @db.Text
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  analyses       ResumeAnalysis[]
+
+  @@index([userId])
+  @@map("resumes")
+}
+
+model ResumeAnalysis {
+  id                        String   @id @default(uuid())
+  resumeId                  String
+  resume                    Resume   @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  overallScore              Int      @default(0) // 0 - 100
+  atsScore                  Int      @default(0) // 0 - 100
+  matchPercentage           Int?     // 0 - 100 (if role/JD provided)
+  summary                   String?  @db.Text
+  strengths                 String   @db.Text // JSON string
+  weaknesses                String   @db.Text // JSON string
+  skillsAnalysis            String   @db.Text // JSON string
+  projectAnalysis           String   @db.Text // JSON string
+  educationAnalysis         String   @db.Text // JSON string
+  experienceAnalysis        String   @db.Text // JSON string
+  formattingIssues          String   @db.Text // JSON string
+  atsIssues                 String   @db.Text // JSON string
+  actionableSuggestions     String   @db.Text // JSON string
+  improvedResumeSuggestions String   @db.Text // JSON string
+  companyRoleAnalysis       String?  @db.Text // JSON string (if role/JD provided)
+  createdAt                 DateTime @default(now())
+
+  @@index([resumeId])
+  @@map("resume_analyses")
+}

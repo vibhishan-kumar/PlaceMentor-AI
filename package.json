@@ -1,0 +1,25 @@
+{
+  "name": "placementor-ai",
+  "version": "1.0.0",
+  "description": "AI-powered placement and career assistant for University of Hyderabad students",
+  "scripts": {
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev",
+    "build:client": "npm --prefix client run build",
+    "db:push": "npm --prefix server run prisma:push",
+    "db:push:sqlite": "npm --prefix server run db:push:sqlite",
+    "prisma:studio": "npm --prefix server run prisma:studio"
+  },
+  "keywords": [
+    "placement",
+    "career",
+    "ai",
+    "gemini",
+    "groq",
+    "uohyd",
+    "resume-analyzer",
+    "ats"
+  ],
+  "author": "PlaceMentor AI Team",
+  "license": "MIT"
+}
