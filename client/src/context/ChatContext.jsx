@@ -71,9 +71,10 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
-  // Send a message
-  const sendMessage = async (content) => {
-    if (!content.trim() || sendingMessage) return;
+  // Send a message (with optional attached resume file)
+  const sendMessage = async (content, resumeFile = null, targetCompany = '', targetRole = '') => {
+    if (!content?.trim() && !resumeFile) return;
+    if (sendingMessage) return;
 
     let targetChatId = currentChatId;
 
@@ -87,19 +88,36 @@ export const ChatProvider = ({ children }) => {
       }
 
       // Optimistic user message addition
+      const displayContent = resumeFile
+        ? `📎 **Attached Resume:** \`${resumeFile.name}\`\n\n${(content || '').trim() || 'Please evaluate this resume for campus placements and ATS compatibility.'}`
+        : content.trim();
+
       const tempUserMessage = {
         id: 'temp-' + Date.now(),
         chatId: targetChatId,
         role: 'USER',
-        content: content.trim(),
+        content: displayContent,
         createdAt: new Date().toISOString()
       };
       setCurrentMessages((prev) => [...prev, tempUserMessage]);
 
-      // Call API
-      const response = await api.post(`/chats/${targetChatId}/messages`, {
-        content: content.trim()
-      });
+      // Call API with multipart/form-data if file attached, otherwise JSON
+      let response;
+      if (resumeFile) {
+        const formData = new FormData();
+        formData.append('content', (content || '').trim());
+        formData.append('resume', resumeFile);
+        if (targetCompany) formData.append('targetCompany', targetCompany);
+        if (targetRole) formData.append('targetRole', targetRole);
+
+        response = await api.post(`/chats/${targetChatId}/messages`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+      } else {
+        response = await api.post(`/chats/${targetChatId}/messages`, {
+          content: content.trim()
+        });
+      }
 
       if (response.data.success) {
         const { userMessage, assistantMessage, chatTitle } = response.data;

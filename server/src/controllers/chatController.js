@@ -1,5 +1,6 @@
 import prisma from '../services/prismaClient.js';
 import { aiService } from '../services/ai/aiProvider.js';
+import { parseResumeFile } from '../services/resumeParser.js';
 
 /**
  * GET /api/chats
@@ -100,14 +101,17 @@ export const getChatById = async (req, res, next) => {
 export const sendMessage = async (req, res, next) => {
   try {
     const { id: chatId } = req.params;
-    const { content } = req.body;
+    const rawContent = req.body.content || '';
+    const file = req.file;
 
-    if (!content || !content.trim()) {
+    if (!rawContent.trim() && !file) {
       return res.status(400).json({
         success: false,
-        message: 'Message content cannot be empty.'
+        message: 'Please provide a message or attach a resume file.'
       });
     }
+
+    const promptText = rawContent.trim() || 'Please evaluate this resume for campus placements and ATS compatibility.';
 
     // Verify chat ownership
     const chat = await prisma.chat.findFirst({
@@ -129,12 +133,42 @@ export const sendMessage = async (req, res, next) => {
       });
     }
 
+    let userStoredContent = promptText;
+    let aiPromptContent = promptText;
+    let extractedResumeText = '';
+
+    // Handle resume attachment
+    if (file) {
+      try {
+        extractedResumeText = await parseResumeFile(file.path, file.mimetype);
+        await prisma.resume.create({
+          data: {
+            userId: req.user.id,
+            fileName: file.originalname,
+            storedName: file.filename,
+            mimeType: file.mimetype,
+            fileSize: file.size,
+            filePath: file.path,
+            extractedText: extractedResumeText,
+            targetCompany: req.body.targetCompany || null,
+            targetRole: req.body.targetRole || null
+          }
+        });
+
+        userStoredContent = `📎 **Attached Resume:** \`${file.originalname}\`\n\n${promptText}`;
+        aiPromptContent = `${promptText}\n\n---\n[STUDENT ATTACHED RESUME CONTENT]:\n${extractedResumeText}\n---\nPlease provide an objective ATS evaluation, strengths, weaknesses, and concrete recommendations for this student.`;
+      } catch (parseErr) {
+        console.error('Failed to parse in-chat resume:', parseErr);
+        userStoredContent = `📎 **Attached Resume:** \`${file.originalname}\` (Error reading file: ${parseErr.message})\n\n${promptText}`;
+      }
+    }
+
     // 1. Save user message to database
     const userMessage = await prisma.message.create({
       data: {
         chatId,
         role: 'USER',
-        content: content.trim()
+        content: userStoredContent
       }
     });
 
@@ -145,7 +179,7 @@ export const sendMessage = async (req, res, next) => {
     }));
     previousMessages.push({
       role: 'USER',
-      content: content.trim()
+      content: aiPromptContent
     });
 
     // 3. Generate AI placement response
@@ -168,7 +202,7 @@ export const sendMessage = async (req, res, next) => {
     // 5. If this was the first message in the chat, set title instantly from prompt
     let updatedTitle = chat.title;
     if (chat.messages.length === 0 || chat.title === 'New Chat') {
-      const words = content.trim().split(/\s+/);
+      const words = promptText.trim().split(/\s+/);
       updatedTitle = words.slice(0, 5).join(' ');
       if (updatedTitle.length > 35) {
         updatedTitle = updatedTitle.slice(0, 35) + '...';
